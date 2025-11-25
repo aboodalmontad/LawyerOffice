@@ -139,7 +139,7 @@ const Navbar: React.FC<{
             <nav className="flex items-center gap-1 sm:gap-4 flex-wrap">
                 <button onClick={() => onNavigate('home')} className="flex items-center" aria-label="العودة إلى الصفحة الرئيسية">
                     <div className="flex flex-col items-start sm:flex-row sm:items-baseline gap-0 sm:gap-2">
-                        <h1 className="text-xl font-bold text-gray-800">مكتب المحامي</h1>
+                        <h1 className="text-xl font-bold text-gray-800">Agenda</h1>
                         <div className="flex items-center gap-1 text-xs text-gray-500">
                             <span>الإصدار: 23-11-2025</span>
                             {profile && (
@@ -579,7 +579,7 @@ const App: React.FC<AppProps> = ({ onRefresh }) => {
         const filteredAppointments = assignee ? dailyAppointments.filter(a => a.assignee === assignee) : dailyAppointments;
         const filteredSessions = assignee ? dailySessions.filter(s => s.assignee === assignee) : dailySessions;
 
-        let message = `*جدول أعمال مكتب المحامي*\n*التاريخ:* ${formatDate(selectedDate)}\n*لـِ:* ${assignee || 'الجميع'}\n\n`;
+        let message = `*Agenda*\n*التاريخ:* ${formatDate(selectedDate)}\n*لـِ:* ${assignee || 'الجميع'}\n\n`;
         if (filteredSessions.length > 0) {
             message += `*القسم الأول: الجلسات (${filteredSessions.length})*\n`;
             filteredSessions.forEach(s => { message += `- (${s.court}) قضية ${s.clientName} ضد ${s.opponentName} (أساس: ${s.caseNumber}).\n`; if (s.postponementReason) message += `  سبب التأجيل السابق: ${s.postponementReason}\n`; });

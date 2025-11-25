@@ -1,3 +1,4 @@
+
 import * as React from 'react';
 import { getSupabaseClient } from '../supabaseClient';
 import { ExclamationCircleIcon, EyeIcon, EyeSlashIcon, ClipboardDocumentIcon, ClipboardDocumentCheckIcon, ArrowTopRightOnSquareIcon, CheckCircleIcon, ShieldCheckIcon } from '../components/icons';
@@ -342,7 +343,7 @@ const LoginPage: React.FC<AuthPageProps> = ({ onForceSetup, onLoginSuccess }) =>
         <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4" dir="rtl">
             <div className="w-full max-w-md">
                 <div className="text-center mb-6">
-                    <h1 className="text-3xl font-bold text-gray-800">مكتب المحامي</h1>
+                    <h1 className="text-3xl font-bold text-gray-800">Agenda</h1>
                     <p className="text-gray-500">إدارة أعمال المحاماة بكفاءة</p>
                 </div>
 

@@ -1,3 +1,4 @@
+
 import * as React from 'react';
 import { Session, Appointment, AdminTask } from '../types';
 import { formatDate } from '../utils/dateUtils';
@@ -40,7 +41,7 @@ const PrintableReport: React.FC<PrintableReportProps> = ({ reportData }) => {
     return (
         <div className="p-4">
             <header className="text-center border-b pb-4 mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">مكتب المحامي</h1>
+                <h1 className="text-3xl font-bold text-gray-800">Agenda</h1>
                 <h2 className="text-2xl font-semibold text-gray-700 mt-2">جدول الأعمال اليومي لـِ: {assignee}</h2>
                 <p className="text-lg text-gray-600">{formatDate(date)}</p>
             </header>

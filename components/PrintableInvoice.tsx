@@ -1,3 +1,4 @@
+
 import * as React from 'react';
 import { Invoice } from '../types';
 import { formatDate } from '../utils/dateUtils';
@@ -17,7 +18,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ invoice, officeInfo
     const total = subtotal + taxAmount - invoice.discount;
 
     const defaultOfficeInfo = {
-        name: 'مكتب المحامي',
+        name: 'Agenda',
         address: 'دمشق، سوريا',
         phone: 'الهاتف: +963 11 123 4567',
         email: 'البريد: email@example.com',
