@@ -9,6 +9,9 @@ export interface Profile {
   role: 'user' | 'admin';
   created_at?: string; // ISO string
   updated_at?: Date;
+  // New fields for verification flow
+  verification_code?: string;
+  phone_verified?: boolean;
 }
 
 

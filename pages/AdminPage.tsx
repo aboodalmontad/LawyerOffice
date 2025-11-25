@@ -2,65 +2,28 @@ import * as React from 'react';
 import { getSupabaseClient } from '../supabaseClient';
 import { Profile } from '../types';
 import { formatDate, toInputDateString } from '../utils/dateUtils';
-import { CheckCircleIcon, NoSymbolIcon, PencilIcon, TrashIcon, ExclamationTriangleIcon } from '../components/icons';
+import { CheckCircleIcon, NoSymbolIcon, PencilIcon, TrashIcon, ExclamationTriangleIcon, ShareIcon, ShieldCheckIcon } from '../components/icons';
 import { useData } from '../context/DataContext';
 import UserDetailsModal from '../components/UserDetailsModal';
 
-/**
- * A robust helper function to format the subscription date range for display.
- * It handles null, undefined, empty, and invalid date strings gracefully,
- * always returning a renderable string.
- * @param user The user profile object.
- * @returns A formatted string representing the date range or a fallback message.
- */
 const formatSubscriptionDateRange = (user: Profile): string => {
     const { subscription_start_date, subscription_end_date } = user;
-
-    // 1. Check for null, undefined, or empty strings
-    if (!subscription_start_date || !subscription_end_date) {
-        return 'لا يوجد';
-    }
-
+    if (!subscription_start_date || !subscription_end_date) return 'لا يوجد';
     const startDate = new Date(subscription_start_date);
     const endDate = new Date(subscription_end_date);
-
-    // 2. Check for invalid dates after parsing
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        console.warn('Invalid subscription date found for user:', user.id);
-        return 'تاريخ غير صالح';
-    }
-    
-    // 3. Dates are valid, format and return the string
-    try {
-        return `${formatDate(startDate)} - ${formatDate(endDate)}`;
-    } catch (e) {
-        console.error("Error formatting date range for user:", user.id, e);
-        return 'خطأ في التهيئة';
-    }
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return 'تاريخ غير صالح';
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
 };
 
-/**
- * Formats a mobile number string for display, cleaning up potentially malformed data.
- * It expects a Syrian number and will format it to the local '09...' format.
- * @param mobile The mobile number string from the database.
- * @returns A cleaned '09...' formatted string or the original string as a fallback.
- */
 const getDisplayPhoneNumber = (mobile: string | null | undefined): string => {
     if (!mobile) return '-';
-    // Strip all non-digit characters from the string.
     const digits = mobile.replace(/\D/g, '');
-    // Check if we have at least 9 digits (standard for Syrian mobile numbers without country code).
     if (digits.length >= 9) {
         const lastNine = digits.slice(-9);
-        // Ensure the number starts with '9' as expected for local Syrian numbers.
-        if (lastNine.startsWith('9')) {
-            return '0' + lastNine;
-        }
+        if (lastNine.startsWith('9')) return '0' + lastNine;
     }
-    // If the format is unexpected, return the original string to avoid breaking display.
     return mobile;
 };
-
 
 const AdminPage: React.FC = () => {
     const { profiles: users, setProfiles: setUsers, isDataLoading: loading, userId } = useData();
@@ -76,6 +39,20 @@ const AdminPage: React.FC = () => {
         e.preventDefault();
         if (!editingUser) return;
         
+        // Here we would typically call Supabase update, but for this app we rely on manualSync/optimistic updates usually.
+        // For the admin page, let's assume we push updates via RPC or direct update if policies allow.
+        // Since strict mode requires direct Supabase interaction for admin functions often:
+        if (supabase) {
+             const { error } = await supabase.from('profiles').update({
+                 full_name: editingUser.full_name,
+                 subscription_start_date: editingUser.subscription_start_date,
+                 subscription_end_date: editingUser.subscription_end_date,
+                 is_approved: editingUser.is_approved,
+                 is_active: editingUser.is_active
+             }).eq('id', editingUser.id);
+             if (error) console.error("Update failed", error);
+        }
+
         setUsers(prevUsers => prevUsers.map(u => 
             u.id === editingUser.id ? { ...editingUser, updated_at: new Date() } : u
         ));
@@ -88,40 +65,43 @@ const AdminPage: React.FC = () => {
         const userToDeleteId = userToDelete.id;
     
         try {
-            const { error: rpcError } = await supabase.rpc('delete_user', {
-                user_id_to_delete: userToDeleteId
-            });
-    
+            const { error: rpcError } = await supabase.rpc('delete_user', { user_id_to_delete: userToDeleteId });
             if (rpcError) throw rpcError;
-    
-            // On success, update the local state immediately
             setUsers(prevUsers => prevUsers.filter(u => u.id !== userToDeleteId));
-            
         } catch (err: any) {
-            let errorMessage = "فشل حذف المستخدم.";
-            if (String(err.message).toLowerCase().includes('failed to fetch')) {
-                errorMessage += " يرجى التحقق من اتصالك بالإنترنت.";
-            } else {
-                errorMessage += ` السبب: ${err.message}`;
-            }
-            setError(errorMessage);
+            setError("فشل حذف المستخدم. " + err.message);
         } finally {
-            setUserToDelete(null); // Close modal regardless of outcome
+            setUserToDelete(null);
         }
     };
     
-    // Quick toggle functions
-    const toggleUserApproval = (user: Profile) => {
+    const toggleUserApproval = async (user: Profile) => {
          if (!supabase || user.role === 'admin') return;
          const updatedUser = { ...user, is_approved: !user.is_approved, updated_at: new Date() };
          setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
+         await supabase.from('profiles').update({ is_approved: updatedUser.is_approved }).eq('id', user.id);
     }
     
-    const toggleUserActiveStatus = (user: Profile) => {
+    const toggleUserActiveStatus = async (user: Profile) => {
          if (!supabase || user.role === 'admin') return;
          const updatedUser = { ...user, is_active: !user.is_active, updated_at: new Date() };
          setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
+         await supabase.from('profiles').update({ is_active: updatedUser.is_active }).eq('id', user.id);
     }
+
+    const sendVerificationCode = (user: Profile) => {
+        if (!user.verification_code) return;
+        // Format for international standard without leading 0, assuming Syrian +963
+        // The stored mobile usually is 09... or similar. 
+        // Let's strip everything and ensure it starts with 963 if it's a syrian number starting with 09
+        let phone = user.mobile_number.replace(/\D/g, '');
+        if (phone.startsWith('09')) phone = '963' + phone.substring(1);
+        else if (phone.startsWith('9')) phone = '963' + phone; // fallback logic
+        
+        const message = `مرحباً ${user.full_name}،\nكود تفعيل حسابك في تطبيق مكتب المحامي هو: *${user.verification_code}*`;
+        const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+        window.open(url, '_blank');
+    };
     
     const sortedUsers = React.useMemo(() => {
         return [...users].sort((a, b) => {
@@ -133,13 +113,8 @@ const AdminPage: React.FC = () => {
     }, [users]);
 
 
-    if (loading) {
-        return <div className="text-center p-8">جاري تحميل المستخدمين...</div>;
-    }
-
-    if (error) {
-        return <div className="p-4 text-red-700 bg-red-100 rounded-md">{error}</div>;
-    }
+    if (loading) return <div className="text-center p-8">جاري تحميل المستخدمين...</div>;
+    if (error) return <div className="p-4 text-red-700 bg-red-100 rounded-md">{error}</div>;
 
     return (
         <div className="space-y-6">
@@ -151,7 +126,8 @@ const AdminPage: React.FC = () => {
                         <tr>
                             <th className="px-6 py-3">الاسم الكامل</th>
                             <th className="px-6 py-3">رقم الجوال</th>
-                            <th className="px-6 py-3">تاريخ التسجيل</th>
+                            <th className="px-6 py-3">تأكيد الهاتف</th>
+                            <th className="px-6 py-3">كود التفعيل</th>
                             <th className="px-6 py-3">الاشتراك</th>
                             <th className="px-6 py-3">موافق عليه</th>
                             <th className="px-6 py-3">الحساب نشط</th>
@@ -168,10 +144,24 @@ const AdminPage: React.FC = () => {
                                     {user.role === 'admin' && <span className="text-xs font-semibold text-blue-600 ms-2">(مدير)</span>}
                                 </td>
                                 <td className="px-6 py-4">{getDisplayPhoneNumber(user.mobile_number)}</td>
-                                <td className="px-6 py-4">{user.created_at ? formatDate(new Date(user.created_at)) : '-'}</td>
-                                <td className="px-6 py-4">
-                                    {formatSubscriptionDateRange(user)}
+                                <td className="px-6 py-4 text-center">
+                                    {user.phone_verified ? 
+                                        <ShieldCheckIcon className="w-5 h-5 text-green-600 mx-auto" title="تم تأكيد الهاتف" /> : 
+                                        <span className="inline-block w-3 h-3 rounded-full bg-red-400" title="غير مؤكد"></span>
+                                    }
                                 </td>
+                                <td className="px-6 py-4">
+                                    {user.role !== 'admin' && user.verification_code && !user.phone_verified && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-mono font-bold bg-gray-100 px-2 rounded">{user.verification_code}</span>
+                                            <button onClick={() => sendVerificationCode(user)} className="text-green-600 hover:text-green-800" title="إرسال عبر واتساب">
+                                                <ShareIcon className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    )}
+                                    {user.phone_verified && <span className="text-xs text-green-600">تم التفعيل</span>}
+                                </td>
+                                <td className="px-6 py-4">{formatSubscriptionDateRange(user)}</td>
                                 <td className="px-6 py-4">
                                     <button onClick={() => toggleUserApproval(user)} disabled={user.role === 'admin'} className="disabled:opacity-50 disabled:cursor-not-allowed">
                                         {user.is_approved ? <CheckCircleIcon className="w-6 h-6 text-green-500" /> : <NoSymbolIcon className="w-6 h-6 text-gray-400" />}
@@ -189,7 +179,7 @@ const AdminPage: React.FC = () => {
                                             <button onClick={() => setUserToDelete(user)} className="p-2 text-gray-500 hover:text-red-600" title="حذف"><TrashIcon className="w-4 h-4" /></button>
                                         </div>
                                     ) : (
-                                        <span className="text-xs text-gray-400">لا يمكن تعديل المدير</span>
+                                        <span className="text-xs text-gray-400">--</span>
                                     )}
                                 </td>
                             </tr>
